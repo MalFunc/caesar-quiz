@@ -1,0 +1,53 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background-color: #181825;
+  background-image: url('https://img.freepik.com/free-vector/pixel-art-rural-landscape-background_23-2150592941.jpg?t=st=1757443750~exp=1757447350~hmac=e646bc7e0f75a201f805b4189840483974fa79994613aac67c7227944a8898db&w=1480'); /* Placeholder, replace with your pixel pattern */
+  color: #f8f8f2;
+  font-family: 'Press Start 2P', monospace, system-ui;
+}
+
+/* Pixel border utility */
+.pixel-border {
+  border: 4px solid #00ffd0;
+  box-shadow: 0 0 0 4px #181825, 0 0 8px #00ffd0;
+  border-radius: 0;
+}
+
+/* Animations */
+@keyframes pixelFadeIn {
+  0% { opacity: 0; transform: scale(0.95) translateY(20px); filter: blur(2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+.animate-pixel-fade-in {
+  animation: pixelFadeIn 0.6s cubic-bezier(.68,-0.55,.27,1.55) both;
+}
+
+@keyframes pixelBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px) scale(1.1); }
+}
+.animate-pixel-bounce {
+  animation: pixelBounce 0.7s cubic-bezier(.68,-0.55,.27,1.55) both;
+}
