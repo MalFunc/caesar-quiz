@@ -1,9 +1,10 @@
 package main
+
 import (
 	"log"
+	"time"
 
 	"github.com/gin-contrib/cors"
-
 	"github.com/gin-gonic/gin"
 
 	"caesar-quiz/internal/api"
@@ -36,24 +37,33 @@ func main() {
 	hub := ws.NewHub(database)
 	go hub.Run()
 
-       r := gin.Default()
+	r := gin.Default()
 
-       // Enable CORS for frontend
+	// CORS dari env CORS_ORIGINS (dipisah koma). Default "*".
+	allowCredentials := false
+	for _, o := range cfg.AllowedOrigins {
+		if o == "*" {
+			allowCredentials = false
+			break
+		}
+		allowCredentials = true
+	}
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     cfg.AllowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Host-Token"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: allowCredentials,
+		MaxAge:           12 * time.Hour,
+	}))
 
-       r.Use(cors.New(cors.Config{
-	       AllowOrigins:     []string{"http://139.59.217.119:3000"},
-	       AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	       AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
-	       AllowCredentials: true,
-       }))
-
-       api.RegisterRoutes(r, database, hub)
+	api.RegisterRoutes(r, database, hub, cfg.AllowedOrigins)
 
 	port := cfg.Port
 	if port == "" {
 		port = "8080"
 	}
-	log.Printf("Server running on :%s", port)
+	log.Printf("Server running on :%s (allowed origins: %v)", port, cfg.AllowedOrigins)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatal(err)
 	}

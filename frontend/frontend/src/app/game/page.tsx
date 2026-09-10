@@ -1,16 +1,7 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
-import { fetchQuestions, submitAnswer } from '@/utils/api';
-
-type Question = {
-  id: string;
-  cipher: string;
-  shift: number;
-  plaintext?: string;
-};
-
+import { fetchQuestions, submitAnswer, type Question } from '@/utils/api';
 
 export default function GamePage() {
   const [gameId, setGameId] = useState('');
@@ -20,7 +11,7 @@ export default function GamePage() {
   const [answer, setAnswer] = useState('');
   const [showQuestion, setShowQuestion] = useState(true);
   const [submitted, setSubmitted] = useState(false);
-  const [isCorrect, setIsCorrect] = useState<boolean|null>(null);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,7 +24,7 @@ export default function GamePage() {
           setCurrent(0);
           setError('');
         })
-        .catch(() => setError('Failed to fetch questions'))
+        .catch((err) => setError(err.message || 'Failed to fetch questions'))
         .finally(() => setLoading(false));
     }
   }, [gameId]);
@@ -48,7 +39,7 @@ export default function GamePage() {
     if (!playerId || !questions[current]) return;
     setSubmitted(true);
     try {
-      const res = await submitAnswer({
+      const res = await submitAnswer(gameId, {
         player_id: playerId,
         question_id: questions[current].id,
         answer,
@@ -97,13 +88,12 @@ export default function GamePage() {
           <div>
             <div className="text-pixelAccent text-lg mb-2">Encrypted:</div>
             <div className="text-2xl mb-4 tracking-widest text-pixelGreen">{questions[current].cipher}</div>
-            <div className="text-pixelPurple mb-4">Shift: {questions[current].shift}</div>
             <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4">
               <input
                 type="text"
                 value={answer}
                 onChange={handleInput}
-                maxLength={16}
+                maxLength={200}
                 className="px-4 py-2 text-lg bg-black/60 text-pixelYellow pixel-border outline-none focus:ring-2 focus:ring-pixelAccent transition-all animate-pixel-fade-in tracking-widest text-center"
                 placeholder="Type your answer..."
                 autoFocus

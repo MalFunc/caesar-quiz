@@ -1,12 +1,10 @@
-
+"use client";
 
 import { useEffect, useState } from 'react';
-import { fetchHallOfFame } from '@/utils/api';
-
-type Player = { rank: number; player: string; time_ms: number; player_id: string };
+import { fetchHallOfFame, type LeaderboardEntry } from '@/utils/api';
 
 export default function HallOfFamePage() {
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [players, setPlayers] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [gameId, setGameId] = useState('');
@@ -20,7 +18,7 @@ export default function HallOfFamePage() {
         setPlayers(data);
         setError('');
       })
-      .catch(() => setError('Failed to fetch leaderboard'))
+      .catch((err) => setError(err.message || 'Failed to fetch leaderboard'))
       .finally(() => setLoading(false));
   }, [submitted, gameId]);
 
@@ -54,37 +52,31 @@ export default function HallOfFamePage() {
         )}
         {submitted && loading && <div className="text-pixelAccent">Loading leaderboard...</div>}
         {submitted && error && <div className="text-red-400">{error}</div>}
+        {submitted && !loading && !error && players.length === 0 && (
+          <div className="text-gray-400">Belum ada skor untuk sesi ini.</div>
+        )}
         {submitted && players.length > 0 && (
           <table className="w-full text-left">
             <thead>
               <tr className="text-pixelAccent text-lg">
                 <th className="pb-2">Rank</th>
                 <th className="pb-2">Name</th>
-                <th className="pb-2 text-right">Waktu (ms)</th>
+                <th className="pb-2 text-right">Waktu</th>
               </tr>
             </thead>
             <tbody>
-              {players.map((player) => (
-                <tr key={player.player_id}>
-                  <td>{player.rank}</td>
-                  <td>{player.player}</td>
-                  <td className="text-right">{player.time_ms}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              {players.map((player, i) => (
                 <tr
-                  key={player.name}
+                  key={player.player_id}
                   className={
                     i < 3
                       ? `animate-pixel-bounce ${i === 0 ? 'text-pixelYellow' : i === 1 ? 'text-pixelPurple' : 'text-pixelGreen'} font-bold`
                       : 'text-white'
                   }
                 >
-                  <td className="py-2 pr-4">{i + 1}</td>
-                  <td className="py-2 pr-4">{player.name}</td>
-                  <td className="py-2 text-right">{player.score}</td>
+                  <td className="py-2 pr-4">{player.rank}</td>
+                  <td className="py-2 pr-4">{player.player}</td>
+                  <td className="py-2 text-right">{((player.time_ms ?? 0) / 1000).toFixed(2)} detik</td>
                 </tr>
               ))}
             </tbody>

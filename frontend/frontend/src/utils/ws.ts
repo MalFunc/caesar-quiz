@@ -1,12 +1,19 @@
-// Utility for WebSocket connection to backend
-export function connectWS(gameId: string, onMessage: (data: any) => void): WebSocket {
-  const ws = new WebSocket(`ws://139.59.217.119:8080/ws/${gameId}`);
+// Koneksi WebSocket dinamis (otomatis ws:// atau wss:// mengikuti protokol halaman).
+import { getWsBase } from "./config";
+import type { WsMessage } from "./api";
+
+export function connectWS(
+  gameId: string,
+  onMessage: (data: WsMessage) => void,
+): WebSocket {
+  const url = `${getWsBase()}/ws/${gameId}`;
+  const ws = new WebSocket(url);
   ws.onmessage = (event) => {
     try {
-      const data = JSON.parse(event.data);
+      const data = JSON.parse(event.data) as WsMessage;
       onMessage(data);
-    } catch (e) {
-      // ignore
+    } catch {
+      // ignore pesan non-JSON
     }
   };
   return ws;

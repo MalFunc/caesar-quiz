@@ -1,0 +1,22 @@
+# Contoh systemd unit untuk backend (jalur TANPA Docker).
+# Build dulu di /root/caesar-quiz:  go build -o caesar-quiz ./cmd/server
+# Simpan ke /etc/systemd/system/caesar-quiz.service
+# lalu: systemctl daemon-reload && systemctl enable --now caesar-quiz
+
+[Unit]
+Description=Caesar Quiz Backend (Go)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/caesar-quiz
+Environment="PORT=8080"
+Environment="DATABASE_DSN=host=localhost user=postgres password=postgres dbname=caesar_quiz port=5432 sslmode=disable"
+Environment="CORS_ORIGINS=https://quiz.cyronethic.tech"
+ExecStart=/root/caesar-quiz/caesar-quiz
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

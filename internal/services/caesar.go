@@ -1,9 +1,10 @@
 package services
 
 import (
+	cryptorand "crypto/rand"
+	"math/big"
 	"math/rand"
 	"regexp"
-	"time"
 	"unicode"
 )
 
@@ -37,9 +38,9 @@ func ValidateName(name string) bool {
 	return nameRegex.MatchString(name)
 }
 
-// --- tambahan untuk game ---
-func init() {
-	rand.Seed(time.Now().UnixNano())
+// ValidShift memastikan shift berada di rentang Caesar yang masuk akal (1-25).
+func ValidShift(shift int) bool {
+	return shift >= 1 && shift <= 25
 }
 
 // RandomShift return angka shift acak 1-25
@@ -47,12 +48,18 @@ func RandomShift() int {
 	return rand.Intn(25) + 1
 }
 
-// GenerateGameCode return kode unik game 6 huruf
+// GenerateGameCode return kode unik game 6 huruf (crypto/rand)
 func GenerateGameCode() string {
 	const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	code := make([]byte, 6)
 	for i := range code {
-		code[i] = letters[rand.Intn(len(letters))]
+		n, err := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			// fallback tak terhindarkan: tetap gunakan sumber acak lain
+			code[i] = letters[rand.Intn(len(letters))]
+			continue
+		}
+		code[i] = letters[n.Int64()]
 	}
 	return string(code)
 }

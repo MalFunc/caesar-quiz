@@ -9,8 +9,9 @@ import (
 
 type Game struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Code      string    `gorm:"uniqueIndex;not null"` // kode unik game
-	Shift     int       `gorm:"not null"`             // Caesar shift (bisa random/custom)
+	Code      string    `gorm:"uniqueIndex;not null;size:16"` // kode unik game
+	Shift     int       `gorm:"not null"`                     // Caesar shift (bisa random/custom)
+	HostToken string    `gorm:"size:64"`                      // token rahasia host (start/hint)
 	IsActive  bool      `gorm:"not null;default:true"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 

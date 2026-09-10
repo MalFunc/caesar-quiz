@@ -1,7 +1,15 @@
 "use client";
 import { useState, useRef, useEffect } from 'react';
 import { connectWS } from '@/utils/ws';
-import { API_BASE } from '@/utils/api';
+import {
+  broadcastHint,
+  createGame,
+  fetchPlayers,
+  startGame,
+  type LeaderboardEntry,
+  type PlayerLite,
+  type WsMessage,
+} from '@/utils/api';
 
 export default function HostPage() {
   const [step, setStep] = useState<'form'|'waiting'|'game'>('form');
@@ -11,14 +19,15 @@ export default function HostPage() {
   const [target, setTarget] = useState('');
   const [gameId, setGameId] = useState('');
   const [code, setCode] = useState('');
+  const [hostToken, setHostToken] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [question, setQuestion] = useState<string | null>(null);
   const [plaintext, setPlaintext] = useState<string | null>(null);
   const [shiftVal, setShiftVal] = useState<number | null>(null);
   const [hints, setHints] = useState<string[]>([]);
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [players, setPlayers] = useState<{ id: string; name: string }[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [players, setPlayers] = useState<PlayerLite[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Clean up WebSocket on unmount
@@ -28,57 +37,59 @@ export default function HostPage() {
     };
   }, []);
 
-  // Ambil soal/jawaban/shift dari localStorage saat page load
-useEffect(() => {
-  const savedQuestion = localStorage.getItem('host_question');
-  const savedPlaintext = localStorage.getItem('host_plaintext');
-  const savedShift = localStorage.getItem('host_shift');
+  // Ambil soal/jawaban/shift/token dari localStorage saat page load
+  useEffect(() => {
+    const savedQuestion = localStorage.getItem('host_question');
+    const savedPlaintext = localStorage.getItem('host_plaintext');
+    const savedShift = localStorage.getItem('host_shift');
+    const savedToken = localStorage.getItem('host_token');
 
-  if (savedQuestion) setQuestion(savedQuestion);
-  if (savedPlaintext) setPlaintext(savedPlaintext);
-  if (savedShift) setShiftVal(Number(savedShift));
-}, []);
-
+    if (savedQuestion) setQuestion(savedQuestion);
+    if (savedPlaintext) setPlaintext(savedPlaintext);
+    if (savedShift) setShiftVal(Number(savedShift));
+    if (savedToken) setHostToken(savedToken);
+  }, []);
 
   useEffect(() => {
-  if (step === 'game' && gameId) {
-    if (wsRef.current) wsRef.current.close();
+    if (step === 'game' && gameId) {
+      if (wsRef.current) wsRef.current.close();
 
-    wsRef.current = connectWS(gameId, (data: any) => {
-      // Abaikan type 'question', host sudah punya data lokal
-      if (data.type === 'leaderboard') {
-        setLeaderboard(data.leaderboard);
-      } else if (data.type === 'hint') {
-        setHints(hs => [...hs, data.hint]);
-      }
-    });
-  }
+      wsRef.current = connectWS(gameId, (data: WsMessage) => {
+        if (data.type === 'leaderboard') {
+          setLeaderboard(data.leaderboard);
+        } else if (data.type === 'hint') {
+          setHints(hs => [...hs, data.hint]);
+        }
+      });
+    }
 
-  return () => {
-    if (wsRef.current) wsRef.current.close();
-  };
-}, [step, gameId]);
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, [step, gameId]);
 
-  // Broadcast hint handler
-  const broadcastHint = async () => {
-    if (!gameId) return;
-    await fetch(`${API_BASE}/game/${gameId}/hint`, { method: 'POST' });
+  const handleBroadcastHint = async () => {
+    if (!gameId || !hostToken) return;
+    try {
+      await broadcastHint(gameId, hostToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal broadcast hint');
+    }
   };
 
   // Poll player list every 2s while waiting
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (step === 'waiting' && gameId) {
-      const fetchPlayers = async () => {
+      const load = async () => {
         try {
-          const res = await fetch(`${API_BASE}/game/${gameId}/players`);
-          if (res.ok) {
-            setPlayers(await res.json());
-          }
-        } catch {}
+          setPlayers(await fetchPlayers(gameId));
+        } catch {
+          // biarkan polling tetap jalan
+        }
       };
-      fetchPlayers();
-      interval = setInterval(fetchPlayers, 2000);
+      load();
+      interval = setInterval(load, 2000);
     }
     return () => { if (interval) clearInterval(interval); };
   }, [step, gameId]);
@@ -88,35 +99,49 @@ useEffect(() => {
     setLoading(true);
     setError('');
     try {
-      const payload = {
+      const cleanTarget = target.trim();
+      const data = await createGame({
         name,
         shift: shift === 0 ? 0 : Number(customShift),
-        target: target.trim(),
-      };
-      const res = await fetch(`${API_BASE}/game`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        target: cleanTarget,
       });
-      if (!res.ok) throw new Error('Gagal membuat game');
-      const data = await res.json();
       setGameId(data.game_id);
       setCode(data.code);
+      setHostToken(data.host_token);
+      setQuestion(data.cipher);
+      setPlaintext(cleanTarget);
+      setShiftVal(data.shift);
       setStep('waiting');
-    } catch (err: any) {
-      setError(err.message || 'Gagal membuat game');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal membuat game');
     } finally {
       setLoading(false);
     }
   };
-// Simpan soal/jawaban/shift ke localStorage saat berubah
-useEffect(() => {
-  if (question && plaintext && shiftVal !== null) {
-    localStorage.setItem('host_question', question);
-    localStorage.setItem('host_plaintext', plaintext);
-    localStorage.setItem('host_shift', shiftVal.toString());
-  }
-}, [question, plaintext, shiftVal]);
+
+  // Simpan soal/jawaban/shift/token ke localStorage saat berubah
+  useEffect(() => {
+    if (question && plaintext && shiftVal !== null) {
+      localStorage.setItem('host_question', question);
+      localStorage.setItem('host_plaintext', plaintext);
+      localStorage.setItem('host_shift', shiftVal.toString());
+      if (hostToken) localStorage.setItem('host_token', hostToken);
+    }
+  }, [question, plaintext, shiftVal, hostToken]);
+
+  const handleStart = async () => {
+    if (!gameId) return;
+    setLoading(true);
+    setError('');
+    try {
+      await startGame(gameId, hostToken);
+      setStep('game');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal mulai game');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 font-pixel">
@@ -187,20 +212,7 @@ useEffect(() => {
             </div>
             <button
               className="bg-pixelGreen text-black px-6 py-2 rounded pixel-border hover:bg-pixelAccent transition-all mt-4"
-              onClick={async () => {
-                if (!gameId) return;
-                setLoading(true);
-                setError('');
-                try {
-                  const res = await fetch(`${API_BASE}/game/${gameId}/start`, { method: 'POST' });
-                  if (!res.ok) throw new Error('Gagal mulai game');
-                  setStep('game');
-                } catch (err: any) {
-                  setError(err.message || 'Gagal mulai game');
-                } finally {
-                  setLoading(false);
-                }
-              }}
+              onClick={handleStart}
               disabled={loading}
             >
               {loading ? 'Memulai...' : 'Mulai Game'}
@@ -213,10 +225,8 @@ useEffect(() => {
             <div className="w-full bg-black/60 pixel-border p-4">
               <div className="text-pixelAccent text-lg mb-2">Soal (Cipher):</div>
               <div className="text-2xl text-pixelYellow text-center min-h-[2em]">{question || 'Menunggu soal...'}</div>
-              {/* Jawaban dan shift */}
               <div className="mt-4 text-pixelGreen text-lg">Jawaban: <span className="text-pixelYellow">{plaintext || '-'}</span></div>
               <div className="text-pixelPurple text-lg">Shift: <span className="text-pixelYellow">{shiftVal ?? '-'}</span></div>
-              {/* Area hint */}
               <div className="mt-4">
                 <div className="text-pixelAccent mb-2">Hint:</div>
                 <ul className="text-pixelGreen">
@@ -225,7 +235,7 @@ useEffect(() => {
                 </ul>
                 <button
                   className="mt-2 bg-pixelAccent text-black px-4 py-1 rounded pixel-border hover:bg-pixelGreen transition-all"
-                  onClick={broadcastHint}
+                  onClick={handleBroadcastHint}
                 >
                   Broadcast Hint
                 </button>
@@ -237,7 +247,7 @@ useEffect(() => {
                 {leaderboard.length === 0 && <li className="text-gray-400">Belum ada skor</li>}
                 {leaderboard.map((p, i) => (
                 <li key={p.player_id || i} className="text-pixelPurple">
-                  {p.player}: <span className="text-pixelYellow">{p.time_ms} detik</span>
+                  {p.player}: <span className="text-pixelYellow">{Math.round((p.time_ms ?? 0) / 1000)} detik</span>
                 </li>
               ))} 
               </ol>
