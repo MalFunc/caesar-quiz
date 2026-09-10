@@ -164,15 +164,27 @@ export default function JoinPage() {
             )}
 
             <div className="w-full bg-black/60 pixel-border p-4">
-              <div className="text-pixelGreen text-lg mb-2">Leaderboard:</div>
-              <ol className="list-decimal pl-6">
-                {leaderboard.length === 0 && <li className="text-gray-400">Belum ada skor</li>}
-                {leaderboard.map((p, i) => (
-                  <li key={p.player_id || i} className="text-pixelPurple">
-                    {p.player}: <span className="text-pixelYellow">{((p.time_ms ?? 0) / 1000).toFixed(2)} detik</span>
-                  </li>
-                ))}
-              </ol>
+              <div className="text-pixelGreen text-lg mb-3">Leaderboard:</div>
+              {leaderboard.length === 0 ? (
+                <div className="text-gray-400 text-sm">Belum ada skor</div>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {leaderboard.map((p, i) => (
+                    <li
+                      key={p.player_id || i}
+                      className="flex items-center justify-between gap-3 bg-black/40 px-3 py-2 min-w-0"
+                    >
+                      <span className="flex items-center gap-3 min-w-0">
+                        <span className="shrink-0 min-w-[2rem] text-right text-pixelAccent">{i + 1}.</span>
+                        <span className="truncate text-pixelPurple">{p.player}</span>
+                      </span>
+                      <span className="shrink-0 whitespace-nowrap text-pixelYellow text-sm">
+                        {((p.time_ms ?? 0) / 1000).toFixed(2)} dtk
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         )}
